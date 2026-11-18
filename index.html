@@ -2084,7 +2084,7 @@
         }
 
         // ------------------------------------------------------------------
-        // 12. CSV & JSON FULL BACKUP / RESTORE
+        // 12. CSV & JSON FULL BACKUP / SMART RESTORE
         // ------------------------------------------------------------------
         function downloadCSV(filename, headers, rows) {
             const csvContent = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
@@ -2123,12 +2123,53 @@
             reader.onload = (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    if (data.users) localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(data.users));
-                    if (data.policies) localStorage.setItem(STORAGE_KEYS.POLICIES, JSON.stringify(data.policies));
-                    if (data.business) localStorage.setItem(STORAGE_KEYS.BUSINESS, JSON.stringify(data.business));
-                    if (data.announcements) localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(data.announcements));
-                    if (data.photos) localStorage.setItem(STORAGE_KEYS.PHOTOS, JSON.stringify(data.photos));
-                    if (data.videosMeta) localStorage.setItem(STORAGE_KEYS.VIDEOS_META, JSON.stringify(data.videosMeta));
+                    let restoredCount = 0;
+
+                    // 1. Agar file direct policies ki list (Array) ho
+                    if (Array.isArray(data)) {
+                        localStorage.setItem(STORAGE_KEYS.POLICIES, JSON.stringify(data));
+                        restoredCount += data.length;
+                    } 
+                    // 2. Agar file Object format mein ho (Purana ya Naya Backup)
+                    else if (typeof data === 'object' && data !== null) {
+                        const policiesData = data.policies || data.slic_7203_policies || data.policyRecords || data.records;
+                        if (policiesData) {
+                            const parsedPol = typeof policiesData === 'string' ? JSON.parse(policiesData) : policiesData;
+                            localStorage.setItem(STORAGE_KEYS.POLICIES, JSON.stringify(parsedPol));
+                            restoredCount += parsedPol.length;
+                        }
+
+                        const businessData = data.business || data.slic_7203_business || data.businessRecords || data.team;
+                        if (businessData) {
+                            const parsedBiz = typeof businessData === 'string' ? JSON.parse(businessData) : businessData;
+                            localStorage.setItem(STORAGE_KEYS.BUSINESS, JSON.stringify(parsedBiz));
+                            restoredCount += parsedBiz.length;
+                        }
+
+                        const usersData = data.users || data.slic_7203_users;
+                        if (usersData) {
+                            const parsedUsers = typeof usersData === 'string' ? JSON.parse(usersData) : usersData;
+                            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(parsedUsers));
+                        }
+
+                        const annData = data.announcements || data.slic_7203_announcements;
+                        if (annData) {
+                            const parsedAnn = typeof annData === 'string' ? JSON.parse(annData) : annData;
+                            localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(parsedAnn));
+                        }
+
+                        const photosData = data.photos || data.slic_7203_photos;
+                        if (photosData) {
+                            const parsedPhotos = typeof photosData === 'string' ? JSON.parse(photosData) : photosData;
+                            localStorage.setItem(STORAGE_KEYS.PHOTOS, JSON.stringify(parsedPhotos));
+                        }
+
+                        const videosData = data.videosMeta || data.videos || data.slic_7203_videos_meta;
+                        if (videosData) {
+                            const parsedVideos = typeof videosData === 'string' ? JSON.parse(videosData) : videosData;
+                            localStorage.setItem(STORAGE_KEYS.VIDEOS_META, JSON.stringify(parsedVideos));
+                        }
+                    }
 
                     refreshDashboard();
                     renderPoliciesTable();
@@ -2136,9 +2177,10 @@
                     renderAnnouncements();
                     renderPhotos();
                     renderVideos();
-                    showToast('Backup restored successfully!', 'success');
+                    showToast(`Backup restore ho gaya! (${restoredCount} records load hue)`, 'success');
                 } catch (err) {
-                    showToast('Invalid backup JSON file.', 'error');
+                    console.error(err);
+                    showToast('File parhne mein masla aaya! Baraye meharbani sahi JSON file check karein.', 'error');
                 }
             };
             reader.readAsText(file);
